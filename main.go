@@ -53,22 +53,20 @@ func Collector(w http.ResponseWriter, r *http.Request) {
 
 //Creating struct of Worker
 type Worker struct {
-	ID int
-	Work chan WorkRequest
-	WorkerQueue chan chan WorkerRequest
-	QuitChan chan bool
-
+	ID          int
+	Work        chan WorkRequest
+	WorkerQueue chan chan WorkRequest
+	QuitChan    chan bool
 }
 
 // NewWorker creates, and returns a new Worker object
-func NewWorker(id int, workerQueue chan chan WorkerRequest) Worker {
+func NewWorker(id int, workerQueue chan chan WorkRequest) Worker {
 	//Create and return the worker
-	worker := Worker {
-		ID: id,
-		Work: make(chan WorkRequest),
-		workerQueue: workerQueue,
-		QuitChan: make(chan bool)
-	}
+	worker := Worker{
+		ID:          id,
+		Work:        make(chan WorkRequest),
+		WorkerQueue: workerQueue,
+		QuitChan:    make(chan bool)}
 
 	return worker
 }
@@ -76,15 +74,15 @@ func NewWorker(id int, workerQueue chan chan WorkerRequest) Worker {
 // This function "starts" the worker by starting a goroutine, that is an infinite "for-select" loop.
 func (w *Worker) Start() {
 	go func() {
-		
+
 		for {
 			//Add ourselves into the worker queue.
 			w.WorkerQueue <- w.Work
 
 			select {
-			case work := <- w.Work:
+			case work := <-w.Work:
 				//Recieve a work request.
-				fmt.Printf("worker%d: Recieved work request, delaying for %f seconds", w.Id, work.delay.Seconds())
+				fmt.Printf("worker%d: Recieved work request, delaying for %f seconds", w.ID, work.Delay.Seconds())
 
 				time.Sleep(work.Delay)
 				fmt.Printf("worker%d: Hello, %s!\n", w.ID, work.Name)
@@ -103,8 +101,39 @@ func (w *Worker) Start() {
 func (w *Worker) Stop() {
 	go func() {
 		w.QuitChan <- true
+	}()
+} //Dout - Since we are not calling the function then also it gets stop how it is happening
+
+var WorkerQueue chan chan WorkRequest
+
+//The dispatcher function is used to dispatch the work.
+func StartDispatcher(nworkers int) {
+	//First, initialize the channel we are going to but the worker's work channels into.
+	WorkerQueue = make(chan chan WorkRequest, nworkers)
+
+	//Now, create all of our workers
+	for i := 0; i < nworkers; i++ {
+		fmt.Println("Starting worker", i+1)
+		worker := NewWorker(i+1, WorkerQueue)
+		worker.Start()
 	}
-}()
+	//dout in go func
+	go func() {
+		for {
+			select {
+			case work := <-WorkQueue:
+				fmt.Println("Recieved work request")
+				go func() {
+					worker := <-WorkerQueue
+
+					fmt.Println("Dispatching work request")
+					worker <- work
+				}()
+			}
+		}
+
+	}()
+}
 
 var (
 	Nworkers = flag.Int("n", 4, "The number of workers to start")
