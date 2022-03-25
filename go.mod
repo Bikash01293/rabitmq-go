@@ -1,3 +1,3 @@
-module worker-go
+module worker
 
 go 1.17

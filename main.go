@@ -40,6 +40,11 @@ func Collector(w http.ResponseWriter, r *http.Request) {
 	//Retrieve the person's name from the request
 	name := r.FormValue("name")
 
+	if name == "" {
+		http.Error(w, "You must specify a name", http.StatusBadRequest)
+		return
+	}
+
 	//create a work request with the name and delay field.
 	work := WorkRequest{Name: name, Delay: delay}
 
@@ -48,7 +53,6 @@ func Collector(w http.ResponseWriter, r *http.Request) {
 
 	//Letting the user that the resource has been created.
 	w.WriteHeader(http.StatusCreated)
-	return
 }
 
 //Creating struct of Worker
@@ -83,9 +87,9 @@ func (w *Worker) Start() {
 			case work := <-w.Work:
 				//Recieve a work request.
 				fmt.Printf("worker%d: Recieved work request, delaying for %f seconds", w.ID, work.Delay.Seconds())
-
 				time.Sleep(work.Delay)
 				fmt.Printf("worker%d: Hello, %s!\n", w.ID, work.Name)
+				// w.Stop()
 
 			case <-w.QuitChan:
 				//We have been asked to stop
@@ -102,7 +106,7 @@ func (w *Worker) Stop() {
 	go func() {
 		w.QuitChan <- true
 	}()
-} //Dout - Since we are not calling the function then also it gets stop how it is happening
+} 
 
 var WorkerQueue chan chan WorkRequest
 
@@ -114,22 +118,22 @@ func StartDispatcher(nworkers int) {
 	//Now, create all of our workers
 	for i := 0; i < nworkers; i++ {
 		fmt.Println("Starting worker", i+1)
-		worker := NewWorker(i+1, WorkerQueue)
-		worker.Start()
+		worke := NewWorker(i+1, WorkerQueue)
+		worke.Start()
 	}
-	//dout in go func
+	
 	go func() {
 		for {
 			select {
-			case work := <-WorkQueue:
-				fmt.Println("Recieved work request")
-				go func() {
-					worker := <-WorkerQueue
+				case work := <-WorkQueue: //we will use the WorkQueue channel to recieve the work to perform
+					fmt.Println("Recieved work request")
+					go func() {
+						worker := <-WorkerQueue //we recieve the worker channel from the WorkerQueue channel of channel which tells us which worker channel to use to send the task on
 
-					fmt.Println("Dispatching work request")
-					worker <- work
-				}()
-			}
+						fmt.Println("Dispatching work request")
+						worker <- work //And finally we send the task over the task channel
+					}()
+				}
 		}
 
 	}()
